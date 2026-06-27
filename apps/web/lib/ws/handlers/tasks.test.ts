@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { StoreApi } from "zustand";
+import { makeQueryClient } from "@/lib/query/client";
+import { qk } from "@/lib/query/keys";
 import { removeRecentTask } from "@/lib/recent-tasks";
 import type { AppState } from "@/lib/state/store";
 import { registerTasksHandlers } from "./tasks";
@@ -105,6 +107,12 @@ function makeDeletedMessage(payload: Record<string, unknown>) {
   } as Parameters<NonNullable<ReturnType<typeof registerTasksHandlers>["task.deleted"]>>[0];
 }
 
+function makeHandlers(store: ReturnType<typeof makeStore>, cachedPrimary: string | null) {
+  const queryClient = makeQueryClient();
+  queryClient.setQueryData(qk.tasks.detail("t1"), { primary_session_id: cachedPrimary });
+  return registerTasksHandlers(store, queryClient);
+}
+
 describe("task.updated primary-session focus follow", () => {
   let store: ReturnType<typeof makeStore>;
   let setActiveSessionAuto: ReturnType<typeof vi.fn>;
@@ -125,7 +133,7 @@ describe("task.updated primary-session focus follow", () => {
       setActiveSessionAuto,
     });
 
-    const handlers = registerTasksHandlers(store);
+    const handlers = makeHandlers(store, "sess-old");
     handlers["task.updated"]!(makeMessage(makeTask("t1", "sess-new")));
 
     expect(setActiveSessionAuto).toHaveBeenCalledTimes(1);
@@ -144,7 +152,24 @@ describe("task.updated primary-session focus follow", () => {
       setActiveSessionAuto,
     });
 
-    const handlers = registerTasksHandlers(store);
+    const handlers = makeHandlers(store, "sess-old");
+    handlers["task.updated"]!(makeMessage(makeTask("t1", "sess-new")));
+
+    expect(setActiveSessionAuto).not.toHaveBeenCalled();
+  });
+
+  it("does NOT follow focus when the user is unpinned but not on the previous primary", () => {
+    store = makeStore({
+      tasks: {
+        activeTaskId: "t1",
+        activeSessionId: SESS_OTHER,
+        pinnedSessionId: null,
+        lastSessionByTaskId: {},
+      },
+      setActiveSessionAuto,
+    });
+
+    const handlers = makeHandlers(store, "sess-old");
     handlers["task.updated"]!(makeMessage(makeTask("t1", "sess-new")));
 
     expect(setActiveSessionAuto).not.toHaveBeenCalled();
@@ -161,7 +186,7 @@ describe("task.updated primary-session focus follow", () => {
       setActiveSessionAuto,
     });
 
-    const handlers = registerTasksHandlers(store);
+    const handlers = makeHandlers(store, "sess-old");
     handlers["task.updated"]!(makeMessage(makeTask("t1", "sess-new")));
 
     expect(setActiveSessionAuto).not.toHaveBeenCalled();
@@ -178,8 +203,25 @@ describe("task.updated primary-session focus follow", () => {
       setActiveSessionAuto,
     });
 
-    const handlers = registerTasksHandlers(store);
+    const handlers = makeHandlers(store, "sess-old");
     handlers["task.updated"]!(makeMessage(makeTask("t1", "sess-old")));
+
+    expect(setActiveSessionAuto).not.toHaveBeenCalled();
+  });
+
+  it("does NOT follow focus when the old primary is absent from the task cache", () => {
+    store = makeStore({
+      tasks: {
+        activeTaskId: "t1",
+        activeSessionId: "sess-old",
+        pinnedSessionId: null,
+        lastSessionByTaskId: {},
+      },
+      setActiveSessionAuto,
+    });
+
+    const handlers = registerTasksHandlers(store, makeQueryClient());
+    handlers["task.updated"]!(makeMessage(makeTask("t1", "sess-new")));
 
     expect(setActiveSessionAuto).not.toHaveBeenCalled();
   });
@@ -209,7 +251,7 @@ describe("task.updated primary-session focus follow (pinning)", () => {
       setActiveSessionAuto,
     });
 
-    const handlers = registerTasksHandlers(store);
+    const handlers = makeHandlers(store, "sess-old");
     handlers["task.updated"]!(makeMessage(makeTask("t1", "sess-new")));
 
     expect(setActiveSessionAuto).not.toHaveBeenCalled();
