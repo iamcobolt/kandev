@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback, useRef, useSyncExternalStore } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { getWebSocketClient } from "@/lib/ws/connection";
 import { useAppStore } from "@/components/state-provider";
@@ -32,6 +32,7 @@ export function useWorkspacePRs(workspaceId: string | null) {
 
 const SYNC_RETRY_DELAY = 5_000; // 5 seconds
 const SYNC_MAX_RETRIES = 6; // Up to 30 seconds of retries
+const EMPTY_TASK_PRS: TaskPR[] = [];
 
 /**
  * Returns the primary PR (first by created_at) for a task. Multi-repo tasks
@@ -171,8 +172,25 @@ export function useTaskPR(taskId: string | null) {
   };
 }
 
-/** Read the active task's primary PR from the store (no fetching). */
+function useCachedTaskPRs(taskId: string | null): TaskPR[] {
+  const queryClient = useQueryClient();
+  const subscribe = useCallback(
+    (onStoreChange: () => void) => queryClient.getQueryCache().subscribe(onStoreChange),
+    [queryClient],
+  );
+  const getSnapshot = useCallback(() => {
+    if (!taskId) return EMPTY_TASK_PRS;
+    const prs = queryClient.getQueryData(qk.integrations.github.taskPr(taskId));
+    return Array.isArray(prs) ? prs : EMPTY_TASK_PRS;
+  }, [queryClient, taskId]);
+
+  return useSyncExternalStore(subscribe, getSnapshot, () => EMPTY_TASK_PRS);
+}
+
+/** Read the active task's primary PR from the cache (no fetching or sync). */
 export function useActiveTaskPR(): TaskPR | null {
   const activeTaskId = useAppStore((s) => s.tasks.activeTaskId);
-  return useTaskPR(activeTaskId).pr;
+  const prs = useCachedTaskPRs(activeTaskId);
+  if (!activeTaskId) return null;
+  return getPrimaryTaskPR(prs);
 }

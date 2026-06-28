@@ -977,6 +977,29 @@ describe("query bridge audit", () => {
     cleanup();
   });
 
+  it("does not create a full turns list from a single live turn event", () => {
+    const ws = new FakeWebSocketClient();
+    const queryClient = makeQueryClient();
+
+    const cleanup = registerBridge(ws, queryClient);
+    ws.emit({
+      type: "notification",
+      action: "session.turn.started",
+      payload: {
+        id: "turn-1",
+        task_id: "task-1",
+        session_id: "session-1",
+        started_at: "2026-06-23T00:00:00Z",
+        created_at: "2026-06-23T00:00:00Z",
+        updated_at: "2026-06-23T00:00:00Z",
+      },
+    });
+
+    expect(queryClient.getQueryData(qk.session.turns("session-1"))).toBeUndefined();
+
+    cleanup();
+  });
+
   it("patches queue status and task-plan query caches from session events", () => {
     const ws = new FakeWebSocketClient();
     const queryClient = makeQueryClient();
@@ -1048,9 +1071,37 @@ describe("query bridge audit", () => {
     expect(queryClient.getQueryData(qk.taskPlan.revisions("task-1"))).toMatchObject([
       { id: "revision-1", revision_number: 1 },
     ]);
+    expect(queryClient.getQueryState(qk.taskPlan.revisions("task-1"))).toMatchObject({
+      isInvalidated: true,
+    });
     expect(queryClient.getQueryState(qk.taskPlan.revision("task-1", "revision-1"))).toMatchObject({
       isInvalidated: true,
     });
+
+    cleanup();
+  });
+
+  it("does not create a full revision list from a single task-plan revision event", () => {
+    const ws = new FakeWebSocketClient();
+    const queryClient = makeQueryClient();
+
+    const cleanup = registerBridge(ws, queryClient);
+    ws.emit({
+      type: "notification",
+      action: "task.plan.revision.created",
+      payload: {
+        id: "revision-1",
+        task_id: "task-1",
+        revision_number: 1,
+        title: "Plan",
+        author_kind: "agent",
+        author_name: "Agent",
+        created_at: "2026-06-23T00:00:01Z",
+        updated_at: "2026-06-23T00:00:01Z",
+      },
+    });
+
+    expect(queryClient.getQueryData(qk.taskPlan.revisions("task-1"))).toBeUndefined();
 
     cleanup();
   });

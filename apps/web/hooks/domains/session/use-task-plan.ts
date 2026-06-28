@@ -185,7 +185,10 @@ function useTaskPlanRevisions(
   const loadRevisions = useCallback(async () => {
     if (!taskId) return;
     try {
-      await queryClient.fetchQuery(taskPlanRevisionsQueryOptions(taskId));
+      await queryClient.fetchQuery({
+        ...taskPlanRevisionsQueryOptions(taskId),
+        staleTime: 0,
+      });
     } catch (err) {
       console.error("Failed to load plan revisions:", err);
       setError(err instanceof Error ? err.message : "Failed to load revisions");

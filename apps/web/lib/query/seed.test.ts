@@ -254,7 +254,7 @@ describe("seedQueryClientFromInitialState", () => {
     expect(client.getQueryData(qk.workspaces.repositories(WORKSPACE_ID))).toEqual([repository]);
   });
 
-  it("seeds workspace workflows into the workflow query cache", () => {
+  it("seeds workspace workflows into the visible workflow query cache", () => {
     const client = makeQueryClient();
     const workflow = {
       id: WORKFLOW_ID,
@@ -271,9 +271,10 @@ describe("seedQueryClientFromInitialState", () => {
       },
     });
 
-    expect(client.getQueryData(qk.workflows.all(WORKSPACE_ID, { includeHidden: true }))).toEqual([
-      workflow,
-    ]);
+    expect(client.getQueryData(qk.workflows.all(WORKSPACE_ID))).toEqual([workflow]);
+    expect(
+      client.getQueryData(qk.workflows.all(WORKSPACE_ID, { includeHidden: true })),
+    ).toBeUndefined();
   });
 
   it("does not seed an empty office skills placeholder as fresh query data", () => {

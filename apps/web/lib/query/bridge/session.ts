@@ -175,9 +175,13 @@ function upsertMessage(messages: unknown[], row: Message): Message[] {
 }
 
 function upsertTurn(queryClient: QueryClient, row: Turn, phase: "started" | "completed"): void {
-  queryClient.setQueryData(qk.session.turns(row.session_id), (current: unknown) => {
-    const currentRecord = isRecord(current) ? current : {};
-    const turns = Array.isArray(currentRecord.turns) ? currentRecord.turns : [];
+  const queryKey = qk.session.turns(row.session_id);
+  let patchedExistingList = false;
+  queryClient.setQueryData(queryKey, (current: unknown) => {
+    if (!isRecord(current) || !Array.isArray(current.turns)) return current;
+    patchedExistingList = true;
+    const currentRecord = current;
+    const turns = currentRecord.turns as unknown[];
     const next = turns.map((turn) =>
       isRecord(turn) && turn.id === row.id ? { ...turn, ...definedFields(row) } : turn,
     );
@@ -195,6 +199,9 @@ function upsertTurn(queryClient: QueryClient, row: Turn, phase: "started" | "com
       activeTurnId: nextActiveTurnId(phase, row.id, currentActiveTurnId),
     };
   });
+  if (!patchedExistingList) {
+    queryClient.invalidateQueries({ exact: true, queryKey });
+  }
 }
 
 function nextActiveTurnId(
@@ -375,6 +382,7 @@ function deleteTaskPlan(
 
 function upsertTaskPlanRevision(queryClient: QueryClient, message: PlanRevisionEvent): void {
   const payload = message.payload;
+  const revisionsKey = qk.taskPlan.revisions(payload.task_id);
   const revision: TaskPlanRevision = {
     id: payload.id,
     task_id: payload.task_id,
@@ -386,9 +394,9 @@ function upsertTaskPlanRevision(queryClient: QueryClient, message: PlanRevisionE
     created_at: payload.created_at,
     updated_at: payload.updated_at,
   };
-  queryClient.setQueryData(qk.taskPlan.revisions(payload.task_id), (current: unknown) => {
-    const revisions = Array.isArray(current) ? current : [];
-    const next = revisions.map((item) =>
+  queryClient.setQueryData(revisionsKey, (current: unknown) => {
+    if (!Array.isArray(current)) return current;
+    const next = current.map((item) =>
       isRecord(item) && item.id === revision.id ? { ...item, ...revision } : item,
     );
     if (!next.some((item) => isRecord(item) && item.id === revision.id)) next.unshift(revision);
@@ -397,6 +405,10 @@ function upsertTaskPlanRevision(queryClient: QueryClient, message: PlanRevisionE
         Number((b as TaskPlanRevision).revision_number) -
         Number((a as TaskPlanRevision).revision_number),
     );
+  });
+  queryClient.invalidateQueries({
+    exact: true,
+    queryKey: revisionsKey,
   });
   queryClient.invalidateQueries({
     exact: true,

@@ -3,8 +3,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { qk } from "@/lib/query/keys";
-import type { TaskPlan } from "@/lib/types/http";
+import type { TaskPlan, TaskPlanRevision } from "@/lib/types/http";
 import { useTaskPlan } from "./use-task-plan";
+
+const TEST_TASK_ID = "task-1";
+const TEST_TIMESTAMP = "2026-06-24T00:00:00Z";
 
 const apiMocks = vi.hoisted(() => ({
   createTaskPlan: vi.fn(),
@@ -52,12 +55,27 @@ function wrapperFor(queryClient: QueryClient) {
 function makePlan(overrides: Partial<TaskPlan> = {}): TaskPlan {
   return {
     id: "plan-1",
-    task_id: "task-1",
+    task_id: TEST_TASK_ID,
     title: "Plan",
     content: "# Plan",
     created_by: "user",
-    created_at: "2026-06-24T00:00:00Z",
-    updated_at: "2026-06-24T00:00:00Z",
+    created_at: TEST_TIMESTAMP,
+    updated_at: TEST_TIMESTAMP,
+    ...overrides,
+  };
+}
+
+function makeRevision(overrides: Partial<TaskPlanRevision> = {}): TaskPlanRevision {
+  return {
+    id: "revision-1",
+    task_id: TEST_TASK_ID,
+    revision_number: 1,
+    title: "Plan",
+    author_kind: "agent",
+    author_name: "Agent",
+    revert_of_revision_id: null,
+    created_at: TEST_TIMESTAMP,
+    updated_at: TEST_TIMESTAMP,
     ...overrides,
   };
 }
@@ -70,11 +88,11 @@ beforeEach(() => {
 describe("useTaskPlan", () => {
   it("forces explicit plan refetches past the stale window", async () => {
     const queryClient = createQueryClient();
-    queryClient.setQueryData(qk.taskPlan.detail("task-1"), makePlan({ content: "# Cached" }));
-    queryClient.setQueryData(qk.taskPlan.revisions("task-1"), []);
+    queryClient.setQueryData(qk.taskPlan.detail(TEST_TASK_ID), makePlan({ content: "# Cached" }));
+    queryClient.setQueryData(qk.taskPlan.revisions(TEST_TASK_ID), []);
     apiMocks.getTaskPlan.mockResolvedValue(makePlan({ content: "# Fresh" }));
 
-    const { result } = renderHook(() => useTaskPlan("task-1"), {
+    const { result } = renderHook(() => useTaskPlan(TEST_TASK_ID), {
       wrapper: wrapperFor(queryClient),
     });
 
@@ -84,9 +102,34 @@ describe("useTaskPlan", () => {
     });
 
     expect(apiMocks.getTaskPlan).toHaveBeenCalledTimes(1);
-    expect(queryClient.getQueryData(qk.taskPlan.detail("task-1"))).toMatchObject({
+    expect(queryClient.getQueryData(qk.taskPlan.detail(TEST_TASK_ID))).toMatchObject({
       content: "# Fresh",
     });
-    expect(storeState.markTaskPlanSeen).toHaveBeenCalledWith("task-1", "2026-06-24T00:00:00Z");
+    expect(storeState.markTaskPlanSeen).toHaveBeenCalledWith(TEST_TASK_ID, TEST_TIMESTAMP);
+  });
+
+  it("forces explicit revision loads past the stale window", async () => {
+    const queryClient = createQueryClient();
+    queryClient.setQueryData(qk.taskPlan.detail(TEST_TASK_ID), makePlan());
+    queryClient.setQueryData(qk.taskPlan.revisions(TEST_TASK_ID), [
+      makeRevision({ id: "revision-cached", revision_number: 1, title: "Cached" }),
+    ]);
+    apiMocks.listPlanRevisions.mockResolvedValue([
+      makeRevision({ id: "revision-fresh", revision_number: 2, title: "Fresh" }),
+    ]);
+
+    const { result } = renderHook(() => useTaskPlan(TEST_TASK_ID), {
+      wrapper: wrapperFor(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.revisions[0]?.title).toBe("Cached"));
+    await act(async () => {
+      await result.current.loadRevisions();
+    });
+
+    expect(apiMocks.listPlanRevisions).toHaveBeenCalledTimes(1);
+    expect(queryClient.getQueryData(qk.taskPlan.revisions(TEST_TASK_ID))).toMatchObject([
+      { id: "revision-fresh", revision_number: 2, title: "Fresh" },
+    ]);
   });
 });

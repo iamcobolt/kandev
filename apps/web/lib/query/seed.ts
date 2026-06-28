@@ -153,7 +153,7 @@ function seedWorkspaceWorkflows(client: QueryClient, initialState: QuerySeedInit
   for (const [workspaceId, workflows] of Object.entries(
     initialState.workflowLists?.itemsByWorkspaceId ?? {},
   )) {
-    client.setQueryData(qk.workflows.all(workspaceId, { includeHidden: true }), workflows);
+    client.setQueryData(qk.workflows.all(workspaceId), workflows);
   }
 
   const workflows = initialState.workflows?.items ?? [];
@@ -165,7 +165,7 @@ function seedWorkspaceWorkflows(client: QueryClient, initialState: QuerySeedInit
     byWorkspace.set(workspaceId, items);
   }
   for (const [workspaceId, items] of byWorkspace) {
-    client.setQueryData(qk.workflows.all(workspaceId, { includeHidden: true }), items);
+    client.setQueryData(qk.workflows.all(workspaceId), items);
   }
 }
 
