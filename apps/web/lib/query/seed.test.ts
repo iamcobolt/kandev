@@ -277,7 +277,7 @@ describe("seedQueryClientFromInitialState", () => {
     ).toBeUndefined();
   });
 
-  it("seeds workflow lists into the hidden-inclusive workflow query cache", () => {
+  it("seeds workflow lists into the visible workflow query cache by default", () => {
     const client = makeQueryClient();
     const workflow = {
       id: WORKFLOW_ID,
@@ -291,6 +291,33 @@ describe("seedQueryClientFromInitialState", () => {
       workflowLists: {
         itemsByWorkspaceId: {
           [WORKSPACE_ID]: [workflow],
+        },
+      },
+    });
+
+    expect(client.getQueryData(qk.workflows.all(WORKSPACE_ID))).toEqual([workflow]);
+    expect(
+      client.getQueryData(qk.workflows.all(WORKSPACE_ID, { includeHidden: true })),
+    ).toBeUndefined();
+  });
+
+  it("seeds explicitly hidden-inclusive workflow lists under the hidden-inclusive key", () => {
+    const client = makeQueryClient();
+    const workflow = {
+      id: WORKFLOW_ID,
+      workspace_id: WORKSPACE_ID,
+      name: "Build",
+      sort_order: 10,
+      hidden: true,
+    } as Workflow;
+
+    seedQueryClientFromInitialState(client, {
+      workflowLists: {
+        itemsByWorkspaceId: {
+          [WORKSPACE_ID]: [workflow],
+        },
+        includeHiddenByWorkspaceId: {
+          [WORKSPACE_ID]: true,
         },
       },
     });

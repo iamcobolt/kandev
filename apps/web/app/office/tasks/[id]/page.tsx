@@ -307,7 +307,10 @@ function useIssueData(id: string) {
   const refetchTask = useCallback(async () => {
     if (!taskWorkspaceId) return;
     try {
-      const res = await queryClient.fetchQuery(officeTaskQueryOptions(taskWorkspaceId, id));
+      const res = await queryClient.fetchQuery({
+        ...officeTaskQueryOptions(taskWorkspaceId, id),
+        staleTime: 0,
+      });
       if (res.task) {
         setTask(mapOfficeTaskToTask(res.task));
         setTimeline(res.timeline ?? []);

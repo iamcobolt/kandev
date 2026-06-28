@@ -121,6 +121,7 @@ function buildResourceState(p: BuildSessionPageStateParams) {
     // Don't write activeId — null means "All Workflows"; task context lives in the seeded snapshot.
     workflowLists: {
       itemsByWorkspaceId: { [task.workspace_id]: workflows },
+      includeHiddenByWorkspaceId: { [task.workspace_id]: true },
     },
     repositories: {
       itemsByWorkspaceId: { [task.workspace_id]: repositories },

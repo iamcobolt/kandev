@@ -28,9 +28,10 @@ export function useSummarizeSession() {
       setIsSummarizing(true);
       try {
         // Fetch messages from API — they may not be in the store for non-active sessions
-        const resp = await queryClient.fetchQuery(
-          sessionMessagesQueryOptions(sessionId, { sort: "asc" }),
-        );
+        const resp = await queryClient.fetchQuery({
+          ...sessionMessagesQueryOptions(sessionId, { sort: "asc" }),
+          staleTime: 0,
+        });
         const messages = resp.messages ?? [];
         if (!messages.length) return { summary: null };
 

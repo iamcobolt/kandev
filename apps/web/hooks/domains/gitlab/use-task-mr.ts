@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { qk } from "@/lib/query/keys";
 import {
@@ -15,6 +15,10 @@ import { useGitLabStatus } from "./use-gitlab-status";
  */
 export function useWorkspaceMRs(workspaceId: string | null) {
   const queryClient = useQueryClient();
+  const taskIdsRef = useRef<{ workspaceId: string | null; taskIds: Set<string> }>({
+    workspaceId: null,
+    taskIds: new Set<string>(),
+  });
   const query = useQuery({
     ...workspaceTaskMrsQueryOptions(workspaceId ?? ""),
     enabled: Boolean(workspaceId),
@@ -23,9 +27,20 @@ export function useWorkspaceMRs(workspaceId: string | null) {
   useEffect(() => {
     if (!workspaceId || !query.data) return;
     const mrsByTask = query.data.task_mrs ?? {};
+    const nextTaskIds = new Set(Object.keys(mrsByTask));
+    const previousTaskIds =
+      taskIdsRef.current.workspaceId === workspaceId
+        ? taskIdsRef.current.taskIds
+        : new Set<string>();
+    for (const taskId of previousTaskIds) {
+      if (!nextTaskIds.has(taskId)) {
+        queryClient.setQueryData(qk.integrations.gitlab.taskMr(taskId), []);
+      }
+    }
     for (const [taskId, mrs] of Object.entries(mrsByTask)) {
       queryClient.setQueryData(qk.integrations.gitlab.taskMr(taskId), mrs);
     }
+    taskIdsRef.current = { workspaceId, taskIds: nextTaskIds };
   }, [query.data, queryClient, workspaceId]);
 
   return query.data?.task_mrs ?? {};

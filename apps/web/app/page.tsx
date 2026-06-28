@@ -188,6 +188,7 @@ export default async function Page({ searchParams }: PageProps) {
       },
       workflowLists: {
         itemsByWorkspaceId: { [activeWorkspaceId]: workflowList.workflows },
+        includeHiddenByWorkspaceId: { [activeWorkspaceId]: true },
       },
       repositories: {
         itemsByWorkspaceId: { [activeWorkspaceId]: repositoriesResponse.repositories },

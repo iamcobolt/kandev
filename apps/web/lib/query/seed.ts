@@ -73,6 +73,7 @@ export type QuerySeedInitialState = Omit<
   };
   workflowLists?: {
     itemsByWorkspaceId?: Record<string, Array<Workflow | WorkflowItem>>;
+    includeHiddenByWorkspaceId?: Record<string, boolean>;
   };
   executors?: { items: Executor[] };
   settingsAgents?: { items: Agent[] };
@@ -153,7 +154,9 @@ function seedWorkspaceWorkflows(client: QueryClient, initialState: QuerySeedInit
   for (const [workspaceId, workflows] of Object.entries(
     initialState.workflowLists?.itemsByWorkspaceId ?? {},
   )) {
-    client.setQueryData(qk.workflows.all(workspaceId, { includeHidden: true }), workflows);
+    const includeHidden =
+      initialState.workflowLists?.includeHiddenByWorkspaceId?.[workspaceId] ?? false;
+    client.setQueryData(qk.workflows.all(workspaceId, { includeHidden }), workflows);
   }
 
   const workflows = initialState.workflows?.items ?? [];

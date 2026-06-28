@@ -94,6 +94,31 @@ describe("useWorkspaceMRs", () => {
     expect(listWorkspaceTaskMRsMock).toHaveBeenCalledWith("ws-1");
   });
 
+  it("clears per-task caches for MRs missing from the latest workspace result", async () => {
+    const { queryClient, wrapper } = createQueryHarness();
+    const mr = makeMR({ task_id: "task-1" });
+    listWorkspaceTaskMRsMock.mockResolvedValueOnce({ task_mrs: { "task-1": [mr] } });
+
+    const { result } = renderHook(
+      () => {
+        const mrsByTask = useWorkspaceMRs("ws-1");
+        const taskMrs = useTaskMRs("task-1");
+        return { mrsByTask, taskMrs };
+      },
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.taskMrs).toEqual([mr]));
+
+    act(() => {
+      queryClient.setQueryData(qk.integrations.gitlab.mrs("ws-1"), { task_mrs: {} });
+    });
+
+    await waitFor(() => expect(result.current.mrsByTask).toEqual({}));
+    await waitFor(() => expect(result.current.taskMrs).toEqual([]));
+    expect(queryClient.getQueryData(qk.integrations.gitlab.taskMr("task-1"))).toEqual([]);
+  });
+
   it("does not refetch when the workspace id stays the same", async () => {
     const { wrapper } = createQueryHarness();
     listWorkspaceTaskMRsMock.mockResolvedValue({ task_mrs: {} });
