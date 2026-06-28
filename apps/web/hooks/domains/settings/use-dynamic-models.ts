@@ -45,9 +45,10 @@ export function useAgentCapabilities(
       if (!agentName || !supportsDynamicModels) {
         return;
       }
-      const response = await queryClient.fetchQuery(
-        dynamicModelsQueryOptions(agentName, { refresh: true }),
-      );
+      const response = await queryClient.fetchQuery({
+        ...dynamicModelsQueryOptions(agentName, { refresh: true }),
+        staleTime: 0,
+      });
       if (response.error) {
         setRefreshError(response.error);
       }

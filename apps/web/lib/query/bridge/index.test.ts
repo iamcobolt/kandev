@@ -868,6 +868,75 @@ describe("query bridge audit", () => {
     cleanup();
   });
 
+  it("does not create a full install-job list from a single install event", () => {
+    const ws = new FakeWebSocketClient();
+    const queryClient = makeQueryClient();
+
+    const cleanup = registerBridge(ws, queryClient);
+    ws.emit({
+      type: "notification",
+      action: "agent.install.started",
+      payload: {
+        job_id: "job-1",
+        agent_name: "codex",
+        status: "running",
+        started_at: "2026-06-24T00:00:00Z",
+      },
+    });
+
+    expect(queryClient.getQueryData(qk.settings.installJob("job-1"))).toMatchObject({
+      job_id: "job-1",
+      status: "running",
+    });
+    expect(queryClient.getQueryData(qk.settings.installJobs())).toBeUndefined();
+
+    cleanup();
+  });
+
+  it("patches and invalidates an existing install-job list", () => {
+    const ws = new FakeWebSocketClient();
+    const queryClient = makeQueryClient();
+    queryClient.setQueryData(qk.settings.installJobs(), {
+      jobs: [
+        {
+          job_id: "job-1",
+          agent_name: "codex",
+          status: "running",
+          started_at: "2026-06-24T00:00:00Z",
+        },
+        {
+          job_id: "job-2",
+          agent_name: "claude",
+          status: "running",
+          started_at: "2026-06-24T00:00:00Z",
+        },
+      ],
+    });
+
+    const cleanup = registerBridge(ws, queryClient);
+    ws.emit({
+      type: "notification",
+      action: "agent.install.finished",
+      payload: {
+        job_id: "job-1",
+        agent_name: "codex",
+        status: "succeeded",
+        started_at: "2026-06-24T00:00:00Z",
+        finished_at: "2026-06-24T00:01:00Z",
+      },
+    });
+
+    expect(queryClient.getQueryData(qk.settings.installJobs())).toMatchObject({
+      jobs: [
+        { job_id: "job-1", status: "succeeded" },
+        { job_id: "job-2", status: "running" },
+      ],
+    });
+    expect(queryClient.getQueryState(qk.settings.installJobs())?.isInvalidated).toBe(true);
+
+    cleanup();
+  });
+
   it("keeps session turns active id in the query cache", () => {
     const ws = new FakeWebSocketClient();
     const queryClient = makeQueryClient();

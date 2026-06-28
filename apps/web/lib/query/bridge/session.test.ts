@@ -147,6 +147,9 @@ describe("session query bridge state events — identity", () => {
       task_environment_id: "env-1",
       agent_profile_snapshot: { name: TEST_AGENT_NAME },
     });
+    expect(queryClient.getQueryState(qk.taskSession.byId(TEST_SESSION_ID))?.isInvalidated).toBe(
+      true,
+    );
 
     cleanup();
   });

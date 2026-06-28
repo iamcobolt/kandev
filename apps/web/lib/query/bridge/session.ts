@@ -210,9 +210,10 @@ function nextActiveTurnId(
 function patchTaskSession(queryClient: QueryClient, message: SessionStateEvent): void {
   const payload = message.payload;
   if (!payload.session_id) return;
-  const existing = queryClient.getQueryData(qk.taskSession.byId(payload.session_id));
+  const byIdKey = qk.taskSession.byId(payload.session_id);
+  const existing = queryClient.getQueryData(byIdKey);
   if (isStaleSessionStateEvent(existing, payload.updated_at)) return;
-  queryClient.setQueryData(qk.taskSession.byId(payload.session_id), (current: unknown) => {
+  queryClient.setQueryData(byIdKey, (current: unknown) => {
     const existing = isRecord(current) ? current : {};
     return applySessionStatePayload(
       {
@@ -223,6 +224,9 @@ function patchTaskSession(queryClient: QueryClient, message: SessionStateEvent):
       payload,
     );
   });
+  if (!hasFullSessionDetail(existing)) {
+    queryClient.invalidateQueries({ exact: true, queryKey: byIdKey });
+  }
   if (payload.task_id) {
     patchTaskSessionList(queryClient, payload.task_id, payload.session_id, payload);
     queryClient.invalidateQueries({
@@ -230,6 +234,10 @@ function patchTaskSession(queryClient: QueryClient, message: SessionStateEvent):
       queryKey: qk.taskSession.byTask(payload.task_id),
     });
   }
+}
+
+function hasFullSessionDetail(session: unknown): boolean {
+  return isRecord(session) && typeof session.started_at === "string";
 }
 
 function patchPrimaryTaskSessionState(queryClient: QueryClient, message: SessionStateEvent): void {

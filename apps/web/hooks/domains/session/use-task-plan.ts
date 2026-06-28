@@ -47,7 +47,10 @@ export function useTaskPlan(taskId: string | null, options?: { visible?: boolean
 
     setError(null);
     try {
-      const fetchedPlan = await queryClient.fetchQuery(taskPlanQueryOptions(taskId));
+      const fetchedPlan = await queryClient.fetchQuery({
+        ...taskPlanQueryOptions(taskId),
+        staleTime: 0,
+      });
       // Initial fetch is not a notification — mark as seen so no indicator flashes.
       markTaskPlanSeen(taskId, fetchedPlan?.updated_at);
     } catch (err) {

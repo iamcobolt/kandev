@@ -1,7 +1,7 @@
 /* eslint-disable max-lines-per-function */
 import type { ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { qk } from "@/lib/query/keys";
 import { STORAGE_KEYS } from "@/lib/settings/constants";
@@ -413,5 +413,31 @@ describe("settings query hooks", () => {
     expect(queryClient.getQueryData(qk.settings.dynamicModels("codex"))).toEqual(
       dynamicModelsResponse,
     );
+  });
+
+  it("forces dynamic capability refreshes past the fresh cache window", async () => {
+    const queryClient = createQueryClient();
+    queryClient.setQueryDefaults(qk.settings.dynamicModels("codex"), { staleTime: 30_000 });
+    const refreshedResponse = {
+      ...dynamicModelsResponse,
+      models: [{ id: "gpt-5.1", name: "GPT-5.1" }],
+      current_model_id: "gpt-5.1",
+    };
+    const { result } = renderHook(() => useAgentCapabilities("codex", modelConfig), {
+      wrapper: wrapperFor(queryClient),
+    });
+
+    await waitFor(() => expect(result.current.currentModelId).toBe("gpt-5"));
+    apiMocks.fetchDynamicModels.mockResolvedValueOnce(refreshedResponse);
+    await act(async () => {
+      await result.current.refresh();
+    });
+
+    expect(apiMocks.fetchDynamicModels).toHaveBeenCalledTimes(2);
+    expect(apiMocks.fetchDynamicModels).toHaveBeenLastCalledWith(
+      "codex",
+      expect.objectContaining({ refresh: true }),
+    );
+    await waitFor(() => expect(result.current.currentModelId).toBe("gpt-5.1"));
   });
 });

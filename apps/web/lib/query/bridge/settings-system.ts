@@ -85,9 +85,14 @@ function invalidateExecutorSettings(queryClient: QueryClient) {
 
 function patchInstallJob(queryClient: QueryClient, job: AgentInstallJobPayload) {
   queryClient.setQueryData(qk.settings.installJob(job.job_id), job);
-  queryClient.setQueryData<{ jobs: InstallJob[] }>(qk.settings.installJobs(), (prev) => ({
-    jobs: upsertBy(prev?.jobs ?? [], job, (item) => item.job_id),
-  }));
+  queryClient.setQueryData<{ jobs: InstallJob[] }>(qk.settings.installJobs(), (prev) => {
+    if (!prev || !Array.isArray(prev.jobs)) return prev;
+    return {
+      ...prev,
+      jobs: upsertBy(prev.jobs, job as InstallJob, (item) => item.job_id),
+    };
+  });
+  queryClient.invalidateQueries({ exact: true, queryKey: qk.settings.installJobs() });
 }
 
 function patchInstallOutput(
@@ -97,9 +102,14 @@ function patchInstallOutput(
   const patch = (job: InstallJob | undefined): InstallJob | undefined =>
     job ? { ...job, output: `${job.output ?? ""}${payload.chunk}` } : job;
   queryClient.setQueryData<InstallJob>(qk.settings.installJob(payload.job_id), patch);
-  queryClient.setQueryData<{ jobs: InstallJob[] }>(qk.settings.installJobs(), (prev) => ({
-    jobs: (prev?.jobs ?? []).map((job) => (job.job_id === payload.job_id ? patch(job)! : job)),
-  }));
+  queryClient.setQueryData<{ jobs: InstallJob[] }>(qk.settings.installJobs(), (prev) => {
+    if (!prev || !Array.isArray(prev.jobs)) return prev;
+    return {
+      ...prev,
+      jobs: prev.jobs.map((job) => (job.job_id === payload.job_id ? patch(job)! : job)),
+    };
+  });
+  queryClient.invalidateQueries({ exact: true, queryKey: qk.settings.installJobs() });
 }
 
 function patchExecutorProfile(queryClient: QueryClient, payload: ExecutorProfilePayload) {
