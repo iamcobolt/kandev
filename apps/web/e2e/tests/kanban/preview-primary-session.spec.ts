@@ -95,7 +95,8 @@ test.describe("Preview primary session", () => {
               .filter(
                 (query) => query.queryKey[0] === "workflows" && query.queryKey[2] === "snapshot",
               )
-              .map((query) => query.state.data as WorkflowSnapshot);
+              .map((query) => query.state.data as WorkflowSnapshot | undefined)
+              .filter((snapshot): snapshot is WorkflowSnapshot => Boolean(snapshot));
             const tasks = snapshots.flatMap((snapshot) => snapshot.tasks ?? []);
             return tasks.find((item) => item.id === taskId)?.primary_session_id ?? null;
           }, task.id),
@@ -122,7 +123,8 @@ test.describe("Preview primary session", () => {
         .getQueryCache()
         .findAll()
         .filter((query) => query.queryKey[0] === "workflows" && query.queryKey[2] === "snapshot")
-        .map((query) => query.state.data as WorkflowSnapshot);
+        .map((query) => query.state.data as WorkflowSnapshot | undefined)
+        .filter((snapshot): snapshot is WorkflowSnapshot => Boolean(snapshot));
       const tasks = snapshots.flatMap((snapshot) => snapshot.tasks ?? []);
       const task = tasks.find((item) => item.id === taskId);
       return {

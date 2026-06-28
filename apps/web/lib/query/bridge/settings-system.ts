@@ -24,11 +24,17 @@ export function registerSettingsSystemBridge(
 ): QueryBridgeRegistration {
   return registerBridgeHandlers(ws, queryClient, {
     "agent.available.updated": (message) => {
-      queryClient.setQueryData<ListAvailableAgentsResponse>(qk.settings.availableAgents(), {
-        agents: message.payload.agents ?? [],
-        tools: message.payload.tools ?? [],
-        total: message.payload.agents?.length ?? 0,
-      });
+      queryClient.setQueryData<ListAvailableAgentsResponse>(
+        qk.settings.availableAgents(),
+        (prev) => {
+          const agents = message.payload.agents ?? prev?.agents ?? [];
+          return {
+            agents,
+            tools: message.payload.tools ?? prev?.tools ?? [],
+            total: agents.length,
+          };
+        },
+      );
     },
     "agent.install.started": (message) => patchInstallJob(queryClient, message.payload),
     "agent.install.output": (message) => patchInstallOutput(queryClient, message.payload),

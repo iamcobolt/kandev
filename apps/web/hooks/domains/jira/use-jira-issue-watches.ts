@@ -126,8 +126,10 @@ function patchJiraIssueWatchCaches(
   watch: JiraIssueWatch,
 ) {
   const patch = (prev: JiraIssueWatch[] | undefined) => upsertById(prev ?? [], watch);
+  const patchExisting = (prev: JiraIssueWatch[] | undefined) =>
+    prev ? upsertById(prev, watch) : prev;
   queryClient.setQueryData(qk.integrations.jira.issueWatches(workspaceId), patch);
-  queryClient.setQueryData(qk.integrations.jira.issueWatches(undefined), patch);
+  queryClient.setQueryData(qk.integrations.jira.issueWatches(undefined), patchExisting);
   queryClient.setQueryData(qk.integrations.jira.issueWatches(watch.workspaceId), patch);
 }
 
@@ -138,8 +140,10 @@ function removeJiraIssueWatchFromCaches(
 ) {
   const remove = (prev: JiraIssueWatch[] | undefined) =>
     (prev ?? []).filter((watch) => watch.id !== id);
+  const removeExisting = (prev: JiraIssueWatch[] | undefined) =>
+    prev ? prev.filter((watch) => watch.id !== id) : prev;
   queryClient.setQueryData(qk.integrations.jira.issueWatches(workspaceId), remove);
-  queryClient.setQueryData(qk.integrations.jira.issueWatches(undefined), remove);
+  queryClient.setQueryData(qk.integrations.jira.issueWatches(undefined), removeExisting);
 }
 
 function upsertById<T extends { id: string }>(items: T[], next: T): T[] {

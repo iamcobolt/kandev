@@ -14,18 +14,33 @@ import type { TaskPR } from "@/lib/types/github";
 /** Fetch all PR associations for a workspace. */
 export function useWorkspacePRs(workspaceId: string | null) {
   const queryClient = useQueryClient();
+  const taskIdsRef = useRef<{ workspaceId: string | null; taskIds: Set<string> }>({
+    workspaceId: null,
+    taskIds: new Set<string>(),
+  });
   const query = useQuery({
     ...workspaceTaskPrsQueryOptions(workspaceId ?? ""),
     enabled: Boolean(workspaceId),
   });
 
   useEffect(() => {
-    if (!query.data) return;
+    if (!query.data || !workspaceId) return;
     const prsByTask = query.data.task_prs ?? {};
+    const nextTaskIds = new Set(Object.keys(prsByTask));
+    const previousTaskIds =
+      taskIdsRef.current.workspaceId === workspaceId
+        ? taskIdsRef.current.taskIds
+        : new Set<string>();
+    for (const taskId of previousTaskIds) {
+      if (!nextTaskIds.has(taskId)) {
+        queryClient.setQueryData(qk.integrations.github.taskPr(taskId), []);
+      }
+    }
     for (const [taskId, prs] of Object.entries(prsByTask)) {
       queryClient.setQueryData(qk.integrations.github.taskPr(taskId), prs);
     }
-  }, [query.data, queryClient]);
+    taskIdsRef.current = { workspaceId, taskIds: nextTaskIds };
+  }, [query.data, queryClient, workspaceId]);
 
   return query.data?.task_prs ?? {};
 }

@@ -67,8 +67,9 @@ function patchGitLabIssueWatchCaches(
   watch: IssueWatch,
 ) {
   const patch = (prev: IssueWatch[] | undefined) => upsertById(prev ?? [], watch);
+  const patchExisting = (prev: IssueWatch[] | undefined) => (prev ? upsertById(prev, watch) : prev);
   queryClient.setQueryData(qk.integrations.gitlab.issueWatches(workspaceId), patch);
-  queryClient.setQueryData(qk.integrations.gitlab.issueWatches(undefined), patch);
+  queryClient.setQueryData(qk.integrations.gitlab.issueWatches(undefined), patchExisting);
   queryClient.setQueryData(qk.integrations.gitlab.issueWatches(watch.workspace_id), patch);
 }
 
@@ -79,8 +80,10 @@ function removeGitLabIssueWatchFromCaches(
 ) {
   const remove = (prev: IssueWatch[] | undefined) =>
     (prev ?? []).filter((watch) => watch.id !== id);
+  const removeExisting = (prev: IssueWatch[] | undefined) =>
+    prev ? prev.filter((watch) => watch.id !== id) : prev;
   queryClient.setQueryData(qk.integrations.gitlab.issueWatches(workspaceId), remove);
-  queryClient.setQueryData(qk.integrations.gitlab.issueWatches(undefined), remove);
+  queryClient.setQueryData(qk.integrations.gitlab.issueWatches(undefined), removeExisting);
 }
 
 function upsertById<T extends { id: string }>(items: T[], next: T): T[] {

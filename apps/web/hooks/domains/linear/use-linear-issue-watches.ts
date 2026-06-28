@@ -122,8 +122,10 @@ function patchLinearIssueWatchCaches(
   watch: LinearIssueWatch,
 ) {
   const patch = (prev: LinearIssueWatch[] | undefined) => upsertById(prev ?? [], watch);
+  const patchExisting = (prev: LinearIssueWatch[] | undefined) =>
+    prev ? upsertById(prev, watch) : prev;
   queryClient.setQueryData(qk.integrations.linear.issueWatches(workspaceId), patch);
-  queryClient.setQueryData(qk.integrations.linear.issueWatches(undefined), patch);
+  queryClient.setQueryData(qk.integrations.linear.issueWatches(undefined), patchExisting);
   queryClient.setQueryData(qk.integrations.linear.issueWatches(watch.workspaceId), patch);
 }
 
@@ -134,8 +136,10 @@ function removeLinearIssueWatchFromCaches(
 ) {
   const remove = (prev: LinearIssueWatch[] | undefined) =>
     (prev ?? []).filter((watch) => watch.id !== id);
+  const removeExisting = (prev: LinearIssueWatch[] | undefined) =>
+    prev ? prev.filter((watch) => watch.id !== id) : prev;
   queryClient.setQueryData(qk.integrations.linear.issueWatches(workspaceId), remove);
-  queryClient.setQueryData(qk.integrations.linear.issueWatches(undefined), remove);
+  queryClient.setQueryData(qk.integrations.linear.issueWatches(undefined), removeExisting);
 }
 
 function upsertById<T extends { id: string }>(items: T[], next: T): T[] {

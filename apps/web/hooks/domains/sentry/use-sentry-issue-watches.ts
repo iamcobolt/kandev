@@ -99,8 +99,10 @@ function patchSentryIssueWatchCaches(
   watch: SentryIssueWatch,
 ) {
   const patch = (prev: SentryIssueWatch[] | undefined) => upsertById(prev ?? [], watch);
+  const patchExisting = (prev: SentryIssueWatch[] | undefined) =>
+    prev ? upsertById(prev, watch) : prev;
   queryClient.setQueryData(qk.integrations.sentry.issueWatches(workspaceId), patch);
-  queryClient.setQueryData(qk.integrations.sentry.issueWatches(undefined), patch);
+  queryClient.setQueryData(qk.integrations.sentry.issueWatches(undefined), patchExisting);
   queryClient.setQueryData(qk.integrations.sentry.issueWatches(watch.workspaceId), patch);
 }
 
@@ -111,8 +113,10 @@ function removeSentryIssueWatchFromCaches(
 ) {
   const remove = (prev: SentryIssueWatch[] | undefined) =>
     (prev ?? []).filter((watch) => watch.id !== id);
+  const removeExisting = (prev: SentryIssueWatch[] | undefined) =>
+    prev ? prev.filter((watch) => watch.id !== id) : prev;
   queryClient.setQueryData(qk.integrations.sentry.issueWatches(workspaceId), remove);
-  queryClient.setQueryData(qk.integrations.sentry.issueWatches(undefined), remove);
+  queryClient.setQueryData(qk.integrations.sentry.issueWatches(undefined), removeExisting);
 }
 
 function upsertById<T extends { id: string }>(items: T[], next: T): T[] {

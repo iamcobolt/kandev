@@ -73,8 +73,10 @@ function patchGitLabReviewWatchCaches(
   watch: ReviewWatch,
 ) {
   const patch = (prev: ReviewWatch[] | undefined) => upsertById(prev ?? [], watch);
+  const patchExisting = (prev: ReviewWatch[] | undefined) =>
+    prev ? upsertById(prev, watch) : prev;
   queryClient.setQueryData(qk.integrations.gitlab.reviewWatches(workspaceId), patch);
-  queryClient.setQueryData(qk.integrations.gitlab.reviewWatches(undefined), patch);
+  queryClient.setQueryData(qk.integrations.gitlab.reviewWatches(undefined), patchExisting);
   queryClient.setQueryData(qk.integrations.gitlab.reviewWatches(watch.workspace_id), patch);
 }
 
@@ -85,8 +87,10 @@ function removeGitLabReviewWatchFromCaches(
 ) {
   const remove = (prev: ReviewWatch[] | undefined) =>
     (prev ?? []).filter((watch) => watch.id !== id);
+  const removeExisting = (prev: ReviewWatch[] | undefined) =>
+    prev ? prev.filter((watch) => watch.id !== id) : prev;
   queryClient.setQueryData(qk.integrations.gitlab.reviewWatches(workspaceId), remove);
-  queryClient.setQueryData(qk.integrations.gitlab.reviewWatches(undefined), remove);
+  queryClient.setQueryData(qk.integrations.gitlab.reviewWatches(undefined), removeExisting);
 }
 
 function upsertById<T extends { id: string }>(items: T[], next: T): T[] {

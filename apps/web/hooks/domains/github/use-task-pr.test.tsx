@@ -1,25 +1,24 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createElement, type ReactNode, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { StateProvider } from "@/components/state-provider";
 import { qk } from "@/lib/query/keys";
 import type { AppState } from "@/lib/state/store";
 import type { TaskPR } from "@/lib/types/github";
 
 const requestMock = vi.fn();
+const listWorkspaceTaskPRsMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/ws/connection", () => ({
   getWebSocketClient: () => ({ request: requestMock }),
 }));
 
-// listWorkspaceTaskPRs is only used by useWorkspacePRs (not under test
-// here). Stub it so the module import doesn't fail in jsdom.
 vi.mock("@/lib/api/domains/github-api", () => ({
-  listWorkspaceTaskPRs: vi.fn().mockResolvedValue(null),
+  listWorkspaceTaskPRs: listWorkspaceTaskPRsMock,
 }));
 
-import { useActiveTaskPR, useTaskPR } from "./use-task-pr";
+import { useActiveTaskPR, useTaskPR, useWorkspacePRs } from "./use-task-pr";
 
 const CREATED_AT = "2026-06-28T00:00:00Z";
 
@@ -82,6 +81,8 @@ function taskPR(overrides: Partial<TaskPR> = {}): TaskPR {
 beforeEach(() => {
   vi.useFakeTimers();
   requestMock.mockReset();
+  listWorkspaceTaskPRsMock.mockReset();
+  listWorkspaceTaskPRsMock.mockResolvedValue({ task_prs: {} });
 });
 afterEach(() => {
   cleanup();
@@ -158,5 +159,44 @@ describe("useActiveTaskPR", () => {
 
     expect(result.current?.pr_number).toBe(1512);
     expect(requestMock).not.toHaveBeenCalled();
+  });
+});
+
+describe("useWorkspacePRs", () => {
+  it("clears per-task PR caches that disappear from the workspace aggregate", async () => {
+    vi.useRealTimers();
+    const queryClient = createQueryClient();
+    const taskOnePr = taskPR({ task_id: "task-1", pr_number: 1512 });
+    const taskTwoPr = taskPR({ id: "task-pr-2", task_id: "task-2", pr_number: 1513 });
+    listWorkspaceTaskPRsMock
+      .mockResolvedValueOnce({
+        task_prs: {
+          "task-1": [taskOnePr],
+          "task-2": [taskTwoPr],
+        },
+      })
+      .mockResolvedValueOnce({
+        task_prs: {
+          "task-2": [taskTwoPr],
+        },
+      });
+
+    const { result } = renderHook(() => useWorkspacePRs("workspace-1"), {
+      wrapper: wrapperFor(queryClient),
+    });
+
+    await waitFor(() => expect(result.current["task-1"]).toEqual([taskOnePr]));
+    expect(queryClient.getQueryData(qk.integrations.github.taskPr("task-1"))).toEqual([taskOnePr]);
+
+    await act(async () => {
+      await queryClient.invalidateQueries({
+        exact: true,
+        queryKey: qk.integrations.github.prs("workspace-1"),
+      });
+    });
+
+    await waitFor(() => expect(result.current["task-1"]).toBeUndefined());
+    expect(queryClient.getQueryData(qk.integrations.github.taskPr("task-1"))).toEqual([]);
+    expect(queryClient.getQueryData(qk.integrations.github.taskPr("task-2"))).toEqual([taskTwoPr]);
   });
 });

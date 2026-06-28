@@ -937,6 +937,33 @@ describe("query bridge audit", () => {
     cleanup();
   });
 
+  it("preserves available-agent tools when availability events omit tools", () => {
+    const ws = new FakeWebSocketClient();
+    const queryClient = makeQueryClient();
+    queryClient.setQueryData(qk.settings.availableAgents(), {
+      agents: [{ name: "codex", available: true }],
+      tools: [{ name: "codex", installed: true }],
+      total: 1,
+    });
+
+    const cleanup = registerBridge(ws, queryClient);
+    ws.emit({
+      type: "notification",
+      action: "agent.available.updated",
+      payload: {
+        agents: [{ name: "codex", available: false }],
+      },
+    });
+
+    expect(queryClient.getQueryData(qk.settings.availableAgents())).toEqual({
+      agents: [{ name: "codex", available: false }],
+      tools: [{ name: "codex", installed: true }],
+      total: 1,
+    });
+
+    cleanup();
+  });
+
   it("keeps session turns active id in the query cache", () => {
     const ws = new FakeWebSocketClient();
     const queryClient = makeQueryClient();

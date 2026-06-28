@@ -277,6 +277,30 @@ describe("seedQueryClientFromInitialState", () => {
     ).toBeUndefined();
   });
 
+  it("seeds workflow lists into the hidden-inclusive workflow query cache", () => {
+    const client = makeQueryClient();
+    const workflow = {
+      id: WORKFLOW_ID,
+      workspace_id: WORKSPACE_ID,
+      name: "Build",
+      sort_order: 10,
+      hidden: false,
+    } as Workflow;
+
+    seedQueryClientFromInitialState(client, {
+      workflowLists: {
+        itemsByWorkspaceId: {
+          [WORKSPACE_ID]: [workflow],
+        },
+      },
+    });
+
+    expect(client.getQueryData(qk.workflows.all(WORKSPACE_ID, { includeHidden: true }))).toEqual([
+      workflow,
+    ]);
+    expect(client.getQueryData(qk.workflows.all(WORKSPACE_ID))).toBeUndefined();
+  });
+
   it("does not seed an empty office skills placeholder as fresh query data", () => {
     const client = makeQueryClient();
 

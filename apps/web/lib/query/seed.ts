@@ -153,7 +153,7 @@ function seedWorkspaceWorkflows(client: QueryClient, initialState: QuerySeedInit
   for (const [workspaceId, workflows] of Object.entries(
     initialState.workflowLists?.itemsByWorkspaceId ?? {},
   )) {
-    client.setQueryData(qk.workflows.all(workspaceId), workflows);
+    client.setQueryData(qk.workflows.all(workspaceId, { includeHidden: true }), workflows);
   }
 
   const workflows = initialState.workflows?.items ?? [];
