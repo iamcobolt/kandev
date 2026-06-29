@@ -8,7 +8,9 @@ import { sessionMessagesLatestQueryOptions } from "@/lib/query/query-options";
 export function useSidebarMessagesBySession(
   sessionIds: string[],
 ): Record<string, Message[] | undefined> {
-  const queries = useQueries({ queries: sessionIds.map(sessionMessagesLatestQueryOptions) });
+  const queries = useQueries({
+    queries: sessionIds.map((id) => sessionMessagesLatestQueryOptions(id)),
+  });
 
   return useMemo<Record<string, Message[] | undefined>>(
     () => Object.fromEntries(sessionIds.map((id, i) => [id, queries[i]?.data?.messages])),

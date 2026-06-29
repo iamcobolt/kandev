@@ -488,7 +488,7 @@ func (c *Client) sendMessageForSession(sessionID string, msg *ws.Message) bool {
 }
 
 func (c *Client) sendMessageForSessionSeq(sessionID string, sessionSeq int64, msg *ws.Message) bool {
-	stamped, ok := c.stampAndMarshalForSession(sessionID, sessionSeq, msg)
+	stamped, ok := c.stampForSession(sessionID, sessionSeq, msg)
 	if !ok {
 		return false
 	}
@@ -517,7 +517,6 @@ func (c *Client) sendStampedCopyForSessionSeq(sessionID string, sessionSeq int64
 }
 
 type stampedMessage struct {
-	data          []byte
 	message       ws.Message
 	connectionSeq int64
 	sessionSeq    int64
@@ -527,7 +526,7 @@ type stampedMessage struct {
 	sentAt        time.Time
 }
 
-func (c *Client) stampAndMarshalForSession(
+func (c *Client) stampForSession(
 	sessionID string,
 	sessionSeq int64,
 	msg *ws.Message,
@@ -545,13 +544,7 @@ func (c *Client) stampAndMarshalForSession(
 		}
 		stampedMsg.SessionSeq = sessionSeq
 	}
-	data, err := json.Marshal(&stampedMsg)
-	if err != nil {
-		c.logger.Error("Failed to marshal message", zap.Error(err))
-		return stampedMessage{}, false
-	}
 	return stampedMessage{
-		data:       data,
 		message:    stampedMsg,
 		sessionSeq: stampedMsg.SessionSeq,
 		sessionID:  sessionID,
@@ -570,15 +563,15 @@ func (c *Client) sendStampedMessage(stamped *stampedMessage) bool {
 		c.logger.Warn("Client send buffer full")
 		return false
 	}
-	connectionSeq := c.connectionSeq.Add(1)
+	connectionSeq := c.connectionSeq.Load() + 1
 	stamped.message.ConnectionSeq = connectionSeq
 	data, err := json.Marshal(&stamped.message)
 	if err != nil {
 		c.logger.Error("Failed to marshal message", zap.Error(err))
 		return false
 	}
+	c.connectionSeq.Store(connectionSeq)
 	c.send <- data
-	stamped.data = data
 	stamped.connectionSeq = connectionSeq
 	stamped.sentAt = time.Now().UTC()
 	return true
